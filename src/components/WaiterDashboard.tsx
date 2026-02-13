@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { supabase, Order, Payment } from '../lib/supabase';
+import { supabase, Order, Payment, Profile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, DollarSign, LogOut, BarChart3, X, Edit2 } from 'lucide-react';
+import { Plus, DollarSign, LogOut, BarChart3, X, Edit2, Eye } from 'lucide-react';
 import { CreateOrderForm } from './CreateOrderForm';
 import { PaymentForm } from './PaymentForm';
 import { PaymentsList } from './PaymentsList';
 import { EditOrderForm } from './EditOrderForm';
+import { OrderDetailsView } from './OrderDetailsView';
 
 type PaymentWithOrder = Payment & { order: Order };
 
@@ -18,6 +19,7 @@ export function WaiterDashboard() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [showReports, setShowReports] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -98,7 +100,12 @@ export function WaiterDashboard() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-lg p-6">
-            <PaymentsList payments={payments} onViewImage={setSelectedImage} isWaiter={true} />
+            <PaymentsList
+              payments={payments}
+              onViewImage={setSelectedImage}
+              onViewOrderDetails={(order) => setSelectedOrderDetails(order)}
+              isWaiter={true}
+            />
           </div>
         </div>
 
@@ -114,6 +121,14 @@ export function WaiterDashboard() {
               <img src={selectedImage} alt="Payment document" className="w-full rounded-lg shadow-2xl" />
             </div>
           </div>
+        )}
+
+        {selectedOrderDetails && profile && (
+          <OrderDetailsView
+            order={selectedOrderDetails}
+            waiter={profile}
+            onClose={() => setSelectedOrderDetails(null)}
+          />
         )}
       </div>
     );
@@ -169,8 +184,8 @@ export function WaiterDashboard() {
                   key={order.id}
                   className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                    <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <span className="text-lg font-semibold text-gray-900">
                           Table {order.table_number}
@@ -194,24 +209,33 @@ export function WaiterDashboard() {
                         {new Date(order.created_at).toLocaleString()}
                       </p>
                     </div>
-                    {order.status === 'pending' && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setEditingOrder(order)}
-                          className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
-                        >
-                          <Edit2 className="w-5 h-5" />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => setSelectedOrder(order)}
-                          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
-                        >
-                          <DollarSign className="w-5 h-5" />
-                          Record Payment
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex flex-wrap gap-2 w-full lg:w-auto">
+                      <button
+                        onClick={() => setSelectedOrderDetails(order)}
+                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                      >
+                        <Eye className="w-5 h-5" />
+                        View Details
+                      </button>
+                      {order.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => setEditingOrder(order)}
+                            className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+                          >
+                            <Edit2 className="w-5 h-5" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setSelectedOrder(order)}
+                            className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                          >
+                            <DollarSign className="w-5 h-5" />
+                            Record Payment
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -219,6 +243,14 @@ export function WaiterDashboard() {
           )}
         </div>
       </div>
+
+      {selectedOrderDetails && profile && (
+        <OrderDetailsView
+          order={selectedOrderDetails}
+          waiter={profile}
+          onClose={() => setSelectedOrderDetails(null)}
+        />
+      )}
     </div>
   );
 }

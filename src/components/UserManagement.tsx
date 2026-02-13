@@ -25,6 +25,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     loadUsers();
@@ -48,12 +49,14 @@ export function UserManagement({ onBack }: UserManagementProps) {
   const resetForm = () => {
     setFormData({ email: '', password: '', full_name: '', role: 'waiter' });
     setError('');
+    setSuccessMessage('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError('');
+    setSuccessMessage('');
 
     try {
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
@@ -83,9 +86,14 @@ export function UserManagement({ onBack }: UserManagementProps) {
         if (profileError) throw profileError;
       }
 
-      loadUsers();
+      await loadUsers();
+      setSuccessMessage(`User "${formData.full_name}" has been successfully created!`);
       resetForm();
       setShowForm(false);
+
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 5000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create user');
     } finally {
@@ -225,6 +233,18 @@ export function UserManagement({ onBack }: UserManagementProps) {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-800 rounded-lg flex items-center justify-between">
+            <span>{successMessage}</span>
+            <button
+              onClick={() => setSuccessMessage('')}
+              className="p-1 hover:bg-green-200 rounded transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         )}
 
