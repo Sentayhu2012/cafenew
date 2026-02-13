@@ -8,7 +8,7 @@ import { PaymentsList } from './PaymentsList';
 import { EditOrderForm } from './EditOrderForm';
 import { OrderDetailsView } from './OrderDetailsView';
 
-type PaymentWithOrder = Payment & { order: Order };
+type PaymentWithOrder = Payment & { order: Order; waiter?: Profile };
 
 export function WaiterDashboard() {
   const { profile, signOut } = useAuth();
@@ -20,6 +20,7 @@ export function WaiterDashboard() {
   const [showReports, setShowReports] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
+  const [selectedWaiter, setSelectedWaiter] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -54,7 +55,17 @@ export function WaiterDashboard() {
             .eq('id', payment.order_id)
             .maybeSingle();
 
-          return { ...payment, order: orderData as Order };
+          if (!orderData) {
+            return { ...payment, order: orderData as Order };
+          }
+
+          const { data: waiterData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', orderData.waiter_id)
+            .maybeSingle();
+
+          return { ...payment, order: orderData as Order, waiter: waiterData as Profile };
         })
       );
 
@@ -117,7 +128,10 @@ export function WaiterDashboard() {
             <PaymentsList
               payments={payments}
               onViewImage={setSelectedImage}
-              onViewOrderDetails={(order) => setSelectedOrderDetails(order)}
+              onViewOrderDetails={(order, waiter) => {
+                setSelectedOrderDetails(order);
+                setSelectedWaiter(waiter);
+              }}
               isWaiter={true}
             />
           </div>
@@ -137,11 +151,14 @@ export function WaiterDashboard() {
           </div>
         )}
 
-        {selectedOrderDetails && profile && (
+        {selectedOrderDetails && selectedWaiter && (
           <OrderDetailsView
             order={selectedOrderDetails}
-            waiter={profile}
-            onClose={() => setSelectedOrderDetails(null)}
+            waiter={selectedWaiter}
+            onClose={() => {
+              setSelectedOrderDetails(null);
+              setSelectedWaiter(null);
+            }}
           />
         )}
       </div>
@@ -266,7 +283,10 @@ export function WaiterDashboard() {
                     </div>
                     <div className="flex flex-wrap gap-2 w-full lg:w-auto">
                       <button
-                        onClick={() => setSelectedOrderDetails(order)}
+                        onClick={() => {
+                          setSelectedOrderDetails(order);
+                          setSelectedWaiter(profile);
+                        }}
                         className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
                       >
                         <Eye className="w-5 h-5" />
@@ -336,11 +356,14 @@ export function WaiterDashboard() {
         </div>
       </div>
 
-      {selectedOrderDetails && profile && (
+      {selectedOrderDetails && selectedWaiter && (
         <OrderDetailsView
           order={selectedOrderDetails}
-          waiter={profile}
-          onClose={() => setSelectedOrderDetails(null)}
+          waiter={selectedWaiter}
+          onClose={() => {
+            setSelectedOrderDetails(null);
+            setSelectedWaiter(null);
+          }}
         />
       )}
     </div>
