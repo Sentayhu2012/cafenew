@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase, Order, Payment, Profile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, DollarSign, LogOut, BarChart3, X, Edit2, Eye, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, DollarSign, LogOut, BarChart3, X, Edit2, Eye, Calendar, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { CreateOrderForm } from './CreateOrderForm';
 import { PaymentForm } from './PaymentForm';
 import { PaymentsList } from './PaymentsList';
@@ -23,6 +23,7 @@ export function WaiterDashboard() {
   const [selectedWaiter, setSelectedWaiter] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
@@ -79,6 +80,7 @@ export function WaiterDashboard() {
 
   const handleOrderCreated = () => {
     setShowCreateOrder(false);
+    setEditingOrder(null);
     loadData();
   };
 
@@ -87,13 +89,30 @@ export function WaiterDashboard() {
     loadData();
   };
 
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm('Are you sure you want to delete this order?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('orders').delete().eq('id', orderId);
+
+      if (error) throw error;
+
+      loadData();
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      alert('Failed to delete order');
+    }
+  };
+
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      if (!dateFilter) return true;
-      const orderDate = new Date(order.created_at).toISOString().split('T')[0];
-      return orderDate === dateFilter;
+      const dateMatch = !dateFilter || new Date(order.created_at).toISOString().split('T')[0] === dateFilter;
+      const statusMatch = !statusFilter || order.status === statusFilter;
+      return dateMatch && statusMatch;
     });
-  }, [orders, dateFilter]);
+  }, [orders, dateFilter, statusFilter]);
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -232,6 +251,36 @@ export function WaiterDashboard() {
                   )}
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="paid">Paid</option>
+                  </select>
+                  {statusFilter && (
+                    <button
+                      onClick={() => {
+                        setStatusFilter('');
+                        setCurrentPage(1);
+                      }}
+                      className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {filteredOrders.length > 0 && (
@@ -300,6 +349,13 @@ export function WaiterDashboard() {
                           >
                             <Edit2 className="w-5 h-5" />
                             Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteOrder(order.id)}
+                            className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition font-medium"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                            Delete
                           </button>
                           <button
                             onClick={() => setSelectedOrder(order)}
