@@ -110,6 +110,24 @@ export function EditOrderForm({ order, onClose, onSuccess }: EditOrderFormProps)
       const existingItems = selectedItems.filter((item) => item.existing);
       const newItems = selectedItems.filter((item) => !item.existing);
 
+      const allCurrentItems = await supabase
+        .from('order_items')
+        .select('id')
+        .eq('order_id', order.id);
+
+      const existingItemIds = selectedItems.filter((s) => s.existing).map((s) => s.id);
+      const itemsToDelete = allCurrentItems.data?.filter((item) => !existingItemIds.includes(item.id));
+
+      if (itemsToDelete && itemsToDelete.length > 0) {
+        const idsToDelete = itemsToDelete.map((item) => item.id);
+        const { error: deleteError } = await supabase
+          .from('order_items')
+          .delete()
+          .in('id', idsToDelete);
+
+        if (deleteError) throw deleteError;
+      }
+
       if (existingItems.length > 0) {
         for (const item of existingItems) {
           const { error: updateError } = await supabase
@@ -132,24 +150,6 @@ export function EditOrderForm({ order, onClose, onSuccess }: EditOrderFormProps)
         const { error: insertError } = await supabase.from('order_items').insert(itemsToInsert);
 
         if (insertError) throw insertError;
-      }
-
-      const allCurrentItems = await supabase
-        .from('order_items')
-        .select('id')
-        .eq('order_id', order.id);
-
-      const existingItemIds = selectedItems.filter((s) => s.existing).map((s) => s.id);
-      const itemsToDelete = allCurrentItems.data?.filter((item) => !existingItemIds.includes(item.id));
-
-      if (itemsToDelete && itemsToDelete.length > 0) {
-        const idsToDelete = itemsToDelete.map((item) => item.id);
-        const { error: deleteError } = await supabase
-          .from('order_items')
-          .delete()
-          .in('id', idsToDelete);
-
-        if (deleteError) throw deleteError;
       }
 
       const total = calculateTotal();
