@@ -29,11 +29,12 @@ type Waiter = {
 type PaymentsListProps = {
   payments: (Payment & { order: Order; waiter?: Waiter })[];
   onViewImage: (url: string) => void;
+  onViewOrderDetails?: (order: Order, waiter: Waiter) => void;
   isWaiter?: boolean;
   isCashierReport?: boolean;
 };
 
-export function PaymentsList({ payments, onViewImage, isWaiter = false, isCashierReport = false }: PaymentsListProps) {
+export function PaymentsList({ payments, onViewImage, onViewOrderDetails, isWaiter = false, isCashierReport = false }: PaymentsListProps) {
   const [dateFilter, setDateFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'declined'>('all');
   const [waiterFilter, setWaiterFilter] = useState<string>('all');
@@ -209,6 +210,15 @@ export function PaymentsList({ payments, onViewImage, isWaiter = false, isCashie
                       >
                         <Eye className="w-4 h-4" />
                         Receipt
+                      </button>
+                    )}
+                    {onViewOrderDetails && payment.waiter && (
+                      <button
+                        onClick={() => onViewOrderDetails(payment.order, payment.waiter!)}
+                        className="flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition text-sm"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Order Details
                       </button>
                     )}
                   </div>

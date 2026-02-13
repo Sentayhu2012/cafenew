@@ -47,7 +47,6 @@ export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
 
       if (paymentMethod === 'bank_transfer') {
         if (!screenshot) throw new Error('Transfer screenshot is required');
-        if (!receipt) throw new Error('Receipt is required');
 
         const screenshotExt = screenshot.name.split('.').pop();
         const screenshotFileName = `${order.id}_screenshot_${Date.now()}.${screenshotExt}`;
@@ -64,20 +63,22 @@ export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
 
         screenshotUrl = screenshotData.publicUrl;
 
-        const receiptExt = receipt.name.split('.').pop();
-        const receiptFileName = `${order.id}_receipt_${Date.now()}.${receiptExt}`;
+        if (receipt) {
+          const receiptExt = receipt.name.split('.').pop();
+          const receiptFileName = `${order.id}_receipt_${Date.now()}.${receiptExt}`;
 
-        const { error: receiptUploadError } = await supabase.storage
-          .from('transfer-screenshots')
-          .upload(receiptFileName, receipt);
+          const { error: receiptUploadError } = await supabase.storage
+            .from('transfer-screenshots')
+            .upload(receiptFileName, receipt);
 
-        if (receiptUploadError) throw receiptUploadError;
+          if (receiptUploadError) throw receiptUploadError;
 
-        const { data: receiptData } = supabase.storage
-          .from('transfer-screenshots')
-          .getPublicUrl(receiptFileName);
+          const { data: receiptData } = supabase.storage
+            .from('transfer-screenshots')
+            .getPublicUrl(receiptFileName);
 
-        receiptUrl = receiptData.publicUrl;
+          receiptUrl = receiptData.publicUrl;
+        }
       }
 
       const { error: paymentError } = await supabase
@@ -220,7 +221,7 @@ export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Receipt
+                    Receipt (Optional)
                   </label>
                   {receiptPreview ? (
                     <div className="relative">
@@ -243,14 +244,13 @@ export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
                   ) : (
                     <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition">
                       <Camera className="w-10 h-10 text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-600 mb-1">Upload receipt</span>
+                      <span className="text-sm text-gray-600 mb-1">Upload receipt (Optional)</span>
                       <span className="text-xs text-gray-500">PNG, JPG up to 10MB</span>
                       <input
                         type="file"
                         accept="image/*"
                         onChange={handleReceiptChange}
                         className="hidden"
-                        required={paymentMethod === 'bank_transfer'}
                       />
                     </label>
                   )}

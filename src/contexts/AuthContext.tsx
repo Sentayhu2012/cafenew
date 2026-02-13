@@ -52,17 +52,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (error) throw error;
+
+      if (data && data.active === false) {
+        await supabase.auth.signOut();
+        setUser(null);
+        setProfile(null);
+        throw new Error('Your account has been deactivated. Please contact an administrator.');
+      }
+
       setProfile(data);
     } catch (error) {
       console.error('Error loading profile:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+
+    if (data.user) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('active')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      if (profileData && profileData.active === false) {
+        await supabase.auth.signOut();
+        throw new Error('Your account has been deactivated. Please contact an administrator.');
+      }
+    }
   };
 
   const signUp = async (email: string, password: string, fullName: string, role: 'waiter' | 'cashier') => {

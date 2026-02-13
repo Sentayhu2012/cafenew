@@ -134,17 +134,22 @@ export function EditOrderForm({ order, onClose, onSuccess }: EditOrderFormProps)
         if (insertError) throw insertError;
       }
 
-      const itemsToDelete = (
-        await supabase
-          .from('order_items')
-          .select('id')
-          .eq('order_id', order.id)
-      ).data?.filter((item) => !selectedItems.find((s) => s.id === item.id && s.existing));
+      const allCurrentItems = await supabase
+        .from('order_items')
+        .select('id')
+        .eq('order_id', order.id);
+
+      const existingItemIds = selectedItems.filter((s) => s.existing).map((s) => s.id);
+      const itemsToDelete = allCurrentItems.data?.filter((item) => !existingItemIds.includes(item.id));
 
       if (itemsToDelete && itemsToDelete.length > 0) {
-        for (const item of itemsToDelete) {
-          await supabase.from('order_items').delete().eq('id', item.id);
-        }
+        const idsToDelete = itemsToDelete.map((item) => item.id);
+        const { error: deleteError } = await supabase
+          .from('order_items')
+          .delete()
+          .in('id', idsToDelete);
+
+        if (deleteError) throw deleteError;
       }
 
       const total = calculateTotal();

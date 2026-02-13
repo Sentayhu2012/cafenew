@@ -50,10 +50,10 @@ export function OrderDetailsView({ order, waiter, onClose }: OrderDetailsViewPro
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-40">
       <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-96 overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">Order Details</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition">
-            <X className="w-6 h-6" />
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 flex items-center justify-between">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Order Details</h2>
+          <button onClick={onClose} className="p-2 sm:p-3 hover:bg-gray-100 rounded-lg transition flex-shrink-0">
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 

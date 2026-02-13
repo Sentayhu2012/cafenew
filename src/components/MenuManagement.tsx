@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase, Menu } from '../lib/supabase';
-import { Plus, Edit2, Trash2, X, Upload } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Upload, ArrowLeft } from 'lucide-react';
 
 type MenuFormData = {
   name: string;
@@ -8,7 +8,11 @@ type MenuFormData = {
   picture?: File;
 };
 
-export function MenuManagement() {
+type MenuManagementProps = {
+  onBack?: () => void;
+};
+
+export function MenuManagement({ onBack }: MenuManagementProps = {}) {
   const [items, setItems] = useState<Menu[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -135,17 +139,27 @@ export function MenuManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Menu Management</h1>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="p-2 hover:bg-gray-200 rounded-lg transition"
+              >
+                <ArrowLeft className="w-6 h-6 text-gray-700" />
+              </button>
+            )}
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Menu Management</h1>
+          </div>
           {!showForm && (
             <button
               onClick={() => {
                 resetForm();
                 setShowForm(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
             >
               <Plus className="w-5 h-5" />
               Add Menu Item
