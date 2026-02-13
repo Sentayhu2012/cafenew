@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase, Payment, Order, Profile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, X, BarChart3, Menu as MenuIcon, Users } from 'lucide-react';
+import { LogOut, X, BarChart3, Menu as MenuIcon, Users, Filter } from 'lucide-react';
 import { PaymentsList } from './PaymentsList';
 import { MenuManagement } from './MenuManagement';
 import { OrderDetailsView } from './OrderDetailsView';
@@ -18,6 +18,7 @@ export function CashierDashboard() {
   const { profile, signOut } = useAuth();
   const [payments, setPayments] = useState<PaymentWithDetails[]>([]);
   const [orders, setOrders] = useState<(Order & { waiter: Profile })[]>([]);
+  const [waiters, setWaiters] = useState<Profile[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showReports, setShowReports] = useState(false);
   const [showMenuManagement, setShowMenuManagement] = useState(false);
@@ -32,9 +33,12 @@ export function CashierDashboard() {
   } | null>(null);
   const [declineReason, setDeclineReason] = useState('');
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedWaiterId, setSelectedWaiterId] = useState('');
 
   useEffect(() => {
     loadPayments();
+    loadWaiters();
     const subscription = supabase
       .channel('payments-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
@@ -46,6 +50,22 @@ export function CashierDashboard() {
       subscription.unsubscribe();
     };
   }, []);
+
+  const loadWaiters = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'waiter')
+        .eq('is_active', true)
+        .order('full_name');
+
+      if (error) throw error;
+      setWaiters(data || []);
+    } catch (error) {
+      console.error('Error loading waiters:', error);
+    }
+  };
 
   const loadPayments = async () => {
     try {
@@ -243,6 +263,22 @@ export function CashierDashboard() {
   const approvedPayments = payments.filter((p) => p.status === 'approved');
   const declinedPayments = payments.filter((p) => p.status === 'declined');
 
+  const filteredPendingPayments = pendingPayments.filter((payment) => {
+    if (selectedDate) {
+      const paymentDate = new Date(payment.submitted_at);
+      const filterDate = new Date(selectedDate);
+      paymentDate.setHours(0, 0, 0, 0);
+      filterDate.setHours(0, 0, 0, 0);
+      if (paymentDate.getTime() !== filterDate.getTime()) return false;
+    }
+
+    if (selectedWaiterId && payment.order.waiter_id !== selectedWaiterId) {
+      return false;
+    }
+
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-slate-100">
       <div className="max-w-7xl mx-auto p-4 sm:p-6">
@@ -329,12 +365,63 @@ export function CashierDashboard() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 mb-6">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Pending Confirmations</h2>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Pending Confirmations</h2>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Filter className="w-4 h-4" />
+              <span>
+                {filteredPendingPayments.length} of {pendingPayments.length}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Date</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Waiter</label>
+              <select
+                value={selectedWaiterId}
+                onChange={(e) => setSelectedWaiterId(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
+              >
+                <option value="">All Waiters</option>
+                {waiters.map((waiter) => (
+                  <option key={waiter.id} value={waiter.id}>
+                    {waiter.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {selectedDate || selectedWaiterId ? (
+            <div className="mb-4">
+              <button
+                onClick={() => {
+                  setSelectedDate('');
+                  setSelectedWaiterId('');
+                }}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Clear filters
+              </button>
+            </div>
+          ) : null}
+
           {loading ? (
             <div className="text-center py-12 text-gray-500">Loading payments...</div>
           ) : (
             <PaginatedPayments
-              payments={pendingPayments}
+              payments={filteredPendingPayments}
               type="pending"
               onApprove={approvePayment}
               onDecline={(paymentId, orderId) => setDeclineModal({ paymentId, orderId })}
