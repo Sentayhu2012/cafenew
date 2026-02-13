@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase, Order, Payment, Profile } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, DollarSign, LogOut, BarChart3, X, Edit2, Eye } from 'lucide-react';
+import { Plus, DollarSign, LogOut, BarChart3, X, Edit2, Eye, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CreateOrderForm } from './CreateOrderForm';
 import { PaymentForm } from './PaymentForm';
 import { PaymentsList } from './PaymentsList';
@@ -21,6 +21,9 @@ export function WaiterDashboard() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dateFilter, setDateFilter] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     loadData();
@@ -72,6 +75,17 @@ export function WaiterDashboard() {
     setSelectedOrder(null);
     loadData();
   };
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      if (!dateFilter) return true;
+      const orderDate = new Date(order.created_at).toISOString().split('T')[0];
+      return orderDate === dateFilter;
+    });
+  }, [orders, dateFilter]);
+
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const paginatedOrders = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (showCreateOrder) {
     return <CreateOrderForm onClose={() => setShowCreateOrder(false)} onSuccess={handleOrderCreated} />;
@@ -173,13 +187,54 @@ export function WaiterDashboard() {
         <div className="bg-white rounded-2xl shadow-lg p-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Orders</h2>
 
+          <div className="flex flex-col gap-4 p-4 bg-gray-50 rounded-lg mb-6">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Date</label>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-gray-500" />
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => {
+                      setDateFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                  {dateFilter && (
+                    <button
+                      onClick={() => {
+                        setDateFilter('');
+                        setCurrentPage(1);
+                      }}
+                      className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {filteredOrders.length > 0 && (
+              <div className="text-sm text-gray-600">
+                Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
+                {Math.min(currentPage * itemsPerPage, filteredOrders.length)} of {filteredOrders.length} orders
+              </div>
+            )}
+          </div>
+
           {loading ? (
             <div className="text-center py-12 text-gray-500">Loading orders...</div>
-          ) : orders.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">No orders yet. Create your first order!</div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              {dateFilter ? 'No orders found for the selected date' : 'No orders yet. Create your first order!'}
+            </div>
           ) : (
-            <div className="space-y-4">
-              {orders.map((order) => (
+            <>
+              <div className="space-y-4">
+                {paginatedOrders.map((order) => (
                 <div
                   key={order.id}
                   className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition"
@@ -239,7 +294,44 @@ export function WaiterDashboard() {
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-6">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-1 rounded-lg font-medium transition ${
+                          currentPage === page
+                            ? 'bg-blue-600 text-white'
+                            : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
