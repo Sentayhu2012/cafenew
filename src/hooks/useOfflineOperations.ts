@@ -7,41 +7,16 @@ export function useOfflineOperations() {
 
   const createOrder = async (orderData: any) => {
     if (isOnline) {
-      const { items, ...orderFields } = orderData;
-
-      const { data, error } = await supabase.from('orders').insert([orderFields]).select().single();
+      const { data, error } = await supabase.from('orders').insert([orderData]).select().single();
       if (error) throw error;
-
-      if (items && items.length > 0) {
-        const itemsWithOrderId = items.map((item: any) => ({
-          ...item,
-          order_id: data.id,
-        }));
-        const { error: itemsError } = await supabase.from('order_items').insert(itemsWithOrderId);
-        if (itemsError) throw itemsError;
-      }
-
       return data;
     } else {
-      const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const itemsWithId = (orderData.items || []).map((item: any) => ({
-        id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        order_id: orderId,
-        ...item,
-      }));
-
-      const offlineOrderData = {
-        ...orderData,
-        id: orderId,
-        items: itemsWithId,
-      };
-
       await indexedDBService.addPendingOperation({
         type: 'create_order',
-        data: offlineOrderData,
+        data: orderData,
         status: 'pending',
       });
-      return offlineOrderData;
+      return orderData;
     }
   };
 
