@@ -17,9 +17,19 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [hasPendingChanges, setHasPendingChanges] = useState(false);
+  const [dbInitialized, setDbInitialized] = useState(false);
 
   useEffect(() => {
-    indexedDBService.init().catch(console.error);
+    const initializeDb = async () => {
+      try {
+        await indexedDBService.init();
+        setDbInitialized(true);
+      } catch (error) {
+        console.error('Failed to initialize IndexedDB:', error);
+      }
+    };
+
+    initializeDb();
 
     const handleOnline = async () => {
       setIsOnline(true);
@@ -46,17 +56,24 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!dbInitialized) return;
+
     checkPendingOperations();
 
     const intervalId = setInterval(checkPendingOperations, 10000);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      unsubscribe();
       clearInterval(intervalId);
     };
-  }, []);
+  }, [dbInitialized]);
 
   const checkPendingOperations = async () => {
     const hasPending = await syncService.hasPendingOperations();

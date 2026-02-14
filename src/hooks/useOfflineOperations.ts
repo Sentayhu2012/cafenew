@@ -7,8 +7,16 @@ export function useOfflineOperations() {
 
   const createOrder = async (orderData: any) => {
     if (isOnline) {
-      const { data, error } = await supabase.from('orders').insert([orderData]).select().single();
+      const { items, ...orderFields } = orderData;
+
+      const { data, error } = await supabase.from('orders').insert([orderFields]).select().single();
       if (error) throw error;
+
+      if (items && items.length > 0) {
+        const { error: itemsError } = await supabase.from('order_items').insert(items);
+        if (itemsError) throw itemsError;
+      }
+
       return data;
     } else {
       await indexedDBService.addPendingOperation({
