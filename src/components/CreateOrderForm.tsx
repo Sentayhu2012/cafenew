@@ -100,23 +100,17 @@ export function CreateOrderForm({ onClose, onSuccess }: CreateOrderFormProps) {
       }
 
       const total = calculateTotal();
-      const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      const orderItems = selectedItems.map((item) => ({
-        id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        order_id: orderId,
-        menu_item_id: item.menu_id,
-        quantity: item.quantity,
-        price: item.menu.price,
-      }));
 
       const orderData = {
-        id: orderId,
         waiter_id: user?.id,
         table_number: tableNumber,
         total_amount: total,
         status: 'pending',
-        items: orderItems,
+        items: selectedItems.map((item) => ({
+          menu_item_id: item.menu_id,
+          quantity: item.quantity,
+          price: item.menu.price,
+        })),
       };
 
       await createOrder(orderData);
