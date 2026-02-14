@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase, Menu } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useOfflineOperations } from '../hooks/useOfflineOperations';
+import { indexedDBService } from '../lib/indexedDB';
 import { X, Save, Plus, Trash2 } from 'lucide-react';
 
 type OrderItem = {
@@ -16,6 +18,7 @@ type CreateOrderFormProps = {
 
 export function CreateOrderForm({ onClose, onSuccess }: CreateOrderFormProps) {
   const { user } = useAuth();
+  const { isOnline, createOrder } = useOfflineOperations();
   const [menuItems, setMenuItems] = useState<Menu[]>([]);
   const [tableNumber, setTableNumber] = useState('');
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
@@ -29,12 +32,23 @@ export function CreateOrderForm({ onClose, onSuccess }: CreateOrderFormProps) {
 
   const loadMenuItems = async () => {
     try {
-      const { data, error: err } = await supabase.from('menu').select('*').order('created_at', { ascending: false });
-      if (err) throw err;
-      setMenuItems(data || []);
+      if (isOnline) {
+        const { data, error: err } = await supabase.from('menu').select('*').order('created_at', { ascending: false });
+        if (err) throw err;
+        setMenuItems(data || []);
+        await indexedDBService.saveMenuItems(data || []);
+      } else {
+        const cachedMenu = await indexedDBService.getMenuItems();
+        setMenuItems(cachedMenu);
+      }
     } catch (err) {
       console.error('Error loading menu items:', err);
-      setError('Failed to load menu items');
+      const cachedMenu = await indexedDBService.getMenuItems();
+      if (cachedMenu.length > 0) {
+        setMenuItems(cachedMenu);
+      } else {
+        setError('Failed to load menu items');
+      }
     } finally {
       setMenuLoading(false);
     }
@@ -86,34 +100,26 @@ export function CreateOrderForm({ onClose, onSuccess }: CreateOrderFormProps) {
       }
 
       const total = calculateTotal();
-
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert([
-          {
-            waiter_id: user?.id,
-            table_number: tableNumber,
-            total_amount: total,
-            status: 'pending',
-          },
-        ])
-        .select()
-        .maybeSingle();
-
-      if (orderError) throw orderError;
-      if (!orderData) throw new Error('Failed to create order');
+      const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       const orderItems = selectedItems.map((item) => ({
-        order_id: orderData.id,
-        menu_id: item.menu_id,
+        id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        order_id: orderId,
+        menu_item_id: item.menu_id,
         quantity: item.quantity,
-        price_at_purchase: item.menu.price,
+        price: item.menu.price,
       }));
 
-      const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+      const orderData = {
+        id: orderId,
+        waiter_id: user?.id,
+        table_number: tableNumber,
+        total_amount: total,
+        status: 'pending',
+        items: orderItems,
+      };
 
-      if (itemsError) throw itemsError;
-
+      await createOrder(orderData);
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create order');
