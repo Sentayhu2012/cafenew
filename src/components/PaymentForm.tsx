@@ -1,6 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase, Order } from '../lib/supabase';
 import { X, Save, Camera } from 'lucide-react';
+
+type Bank = {
+  id: string;
+  name: string;
+  active: boolean;
+};
 
 type PaymentFormProps = {
   order: Order;
@@ -15,8 +21,29 @@ export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
   const [receipt, setReceipt] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [selectedBankId, setSelectedBankId] = useState('');
+  const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    loadBanks();
+  }, []);
+
+  const loadBanks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('banks')
+        .select('*')
+        .eq('active', true)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setBanks(data || []);
+    } catch (err) {
+      console.error('Error loading banks:', err);
+    }
+  };
 
   const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -39,15 +66,19 @@ export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (paymentMethod === 'bank_transfer' && !selectedBankId) {
+      setError('Please select a bank');
+      return;
+    }
+
     setLoading(true);
 
     try {
       let screenshotUrl = null;
       let receiptUrl = null;
 
-      if (paymentMethod === 'bank_transfer') {
-        if (!screenshot) throw new Error('Transfer screenshot is required');
-
+      if (paymentMethod === 'bank_transfer' && screenshot) {
         const screenshotExt = screenshot.name.split('.').pop();
         const screenshotFileName = `${order.id}_screenshot_${Date.now()}.${screenshotExt}`;
 
@@ -62,23 +93,23 @@ export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
           .getPublicUrl(screenshotFileName);
 
         screenshotUrl = screenshotData.publicUrl;
+      }
 
-        if (receipt) {
-          const receiptExt = receipt.name.split('.').pop();
-          const receiptFileName = `${order.id}_receipt_${Date.now()}.${receiptExt}`;
+      if (receipt) {
+        const receiptExt = receipt.name.split('.').pop();
+        const receiptFileName = `${order.id}_receipt_${Date.now()}.${receiptExt}`;
 
-          const { error: receiptUploadError } = await supabase.storage
-            .from('transfer-screenshots')
-            .upload(receiptFileName, receipt);
+        const { error: receiptUploadError } = await supabase.storage
+          .from('transfer-screenshots')
+          .upload(receiptFileName, receipt);
 
-          if (receiptUploadError) throw receiptUploadError;
+        if (receiptUploadError) throw receiptUploadError;
 
-          const { data: receiptData } = supabase.storage
-            .from('transfer-screenshots')
-            .getPublicUrl(receiptFileName);
+        const { data: receiptData } = supabase.storage
+          .from('transfer-screenshots')
+          .getPublicUrl(receiptFileName);
 
-          receiptUrl = receiptData.publicUrl;
-        }
+        receiptUrl = receiptData.publicUrl;
       }
 
       const { error: paymentError } = await supabase
@@ -91,6 +122,7 @@ export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
             tip_amount: tipAmount ? parseFloat(tipAmount) : 0,
             transfer_screenshot_url: screenshotUrl,
             receipt_url: receiptUrl,
+            bank_id: paymentMethod === 'bank_transfer' ? selectedBankId : null,
             status: 'pending',
           },
         ]);
@@ -182,8 +214,27 @@ export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
             {paymentMethod === 'bank_transfer' && (
               <div className="space-y-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Bank <span className="text-red-600">*</span>
+                  </label>
+                  <select
+                    value={selectedBankId}
+                    onChange={(e) => setSelectedBankId(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                    required
+                  >
+                    <option value="">-- Select a bank --</option>
+                    {banks.map((bank) => (
+                      <option key={bank.id} value={bank.id}>
+                        {bank.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Transfer Screenshot
+                    Transfer Screenshot (Optional)
                   </label>
                   {screenshotPreview ? (
                     <div className="relative">
@@ -206,14 +257,13 @@ export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
                   ) : (
                     <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition">
                       <Camera className="w-10 h-10 text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-600 mb-1">Upload transfer screenshot</span>
+                      <span className="text-sm text-gray-600 mb-1">Upload transfer screenshot (optional)</span>
                       <span className="text-xs text-gray-500">PNG, JPG up to 10MB</span>
                       <input
                         type="file"
                         accept="image/*"
                         onChange={handleScreenshotChange}
                         className="hidden"
-                        required={paymentMethod === 'bank_transfer'}
                       />
                     </label>
                   )}

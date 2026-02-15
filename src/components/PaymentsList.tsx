@@ -13,6 +13,12 @@ type Payment = {
   submitted_at: string;
   confirmed_at: string | null;
   declined_reason: string | null;
+  bank_id: string | null;
+};
+
+type Bank = {
+  id: string;
+  name: string;
 };
 
 type Order = {
@@ -28,7 +34,7 @@ type Waiter = {
 };
 
 type PaymentsListProps = {
-  payments: (Payment & { order: Order; waiter?: Waiter })[];
+  payments: (Payment & { order: Order; waiter?: Waiter; bank?: Bank })[];
   onViewImage: (url: string) => void;
   onViewOrderDetails?: (order: Order, waiter: Waiter) => void;
   isWaiter?: boolean;
@@ -207,6 +213,12 @@ export function PaymentsList({ payments, onViewImage, onViewOrderDetails, isWait
                         {new Date(payment.submitted_at).toLocaleDateString()}
                       </span>
                     </div>
+                    {payment.payment_method === 'bank_transfer' && payment.bank && (
+                      <div className="col-span-2">
+                        <span className="text-sm text-gray-600">Bank: </span>
+                        <span className="font-semibold text-blue-600">{payment.bank.name}</span>
+                      </div>
+                    )}
                   </div>
 
                   {payment.status === 'declined' && payment.declined_reason && (

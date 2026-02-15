@@ -35,12 +35,21 @@ export type Payment = {
   tip_amount: number;
   transfer_screenshot_url?: string;
   receipt_url?: string;
+  bank_id?: string;
   status: 'pending' | 'approved' | 'declined';
   submitted_at: string;
   confirmed_at?: string;
   confirmed_by?: string;
   declined_reason?: string;
   declined_at?: string;
+};
+
+export type Bank = {
+  id: string;
+  name: string;
+  created_at: string;
+  created_by: string;
+  active: boolean;
 };
 
 export type Menu = {

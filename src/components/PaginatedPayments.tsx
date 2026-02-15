@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Payment, Order, Profile } from '../lib/supabase';
+import { Payment, Order, Profile, Bank } from '../lib/supabase';
 import { CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 
 type PaymentWithDetails = Payment & {
   order: Order;
   waiter: Profile;
+  bank?: Bank;
 };
 
 type PaginatedPaymentsProps = {
@@ -79,6 +80,12 @@ export function PaginatedPayments({
                         ${Number(payment.tip_amount).toFixed(2)}
                       </div>
                     </div>
+                    {payment.payment_method === 'bank_transfer' && payment.bank && (
+                      <div className="col-span-2">
+                        <div className="text-sm text-gray-600">Bank</div>
+                        <div className="font-semibold text-blue-600">{payment.bank.name}</div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex gap-2 flex-wrap">
@@ -154,6 +161,11 @@ export function PaginatedPayments({
                       Tip: <span className="font-bold text-green-600">${Number(payment.tip_amount).toFixed(2)}</span>
                     </span>
                     <span className="text-gray-600">{payment.waiter.full_name}</span>
+                    {payment.payment_method === 'bank_transfer' && payment.bank && (
+                      <span className="text-gray-600">
+                        Bank: <span className="font-semibold text-blue-600">{payment.bank.name}</span>
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
                     {new Date(payment.confirmed_at!).toLocaleString()}
@@ -195,6 +207,11 @@ export function PaginatedPayments({
                       Amount: <span className="font-bold">${Number(payment.amount).toFixed(2)}</span>
                     </span>
                     <span className="text-gray-600">{payment.waiter.full_name}</span>
+                    {payment.payment_method === 'bank_transfer' && payment.bank && (
+                      <span className="text-gray-600">
+                        Bank: <span className="font-semibold text-blue-600">{payment.bank.name}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

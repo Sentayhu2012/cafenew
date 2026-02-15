@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
-import { supabase, Payment, Order, Profile } from '../lib/supabase';
+import { supabase, Payment, Order, Profile, Bank } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, X, BarChart3, Menu as MenuIcon, Users, Filter } from 'lucide-react';
+import { LogOut, X, BarChart3, Menu as MenuIcon, Users, Filter, Building2 } from 'lucide-react';
 import { PaymentsList } from './PaymentsList';
 import { MenuManagement } from './MenuManagement';
 import { OrderDetailsView } from './OrderDetailsView';
 import { AllOrdersList } from './AllOrdersList';
 import { PaginatedPayments } from './PaginatedPayments';
 import { UserManagement } from './UserManagement';
+import { BankManagement } from './BankManagement';
 
 type PaymentWithDetails = Payment & {
   order: Order;
   waiter: Profile;
+  bank?: Bank;
 };
 
 export function CashierDashboard() {
@@ -23,6 +25,7 @@ export function CashierDashboard() {
   const [showReports, setShowReports] = useState(false);
   const [showMenuManagement, setShowMenuManagement] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
+  const [showBankManagement, setShowBankManagement] = useState(false);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<{
     order: Order;
     waiter: Profile;
@@ -90,10 +93,21 @@ export function CashierDashboard() {
             .eq('id', orderData?.waiter_id)
             .maybeSingle();
 
+          let bankData = null;
+          if (payment.bank_id) {
+            const { data } = await supabase
+              .from('banks')
+              .select('*')
+              .eq('id', payment.bank_id)
+              .maybeSingle();
+            bankData = data;
+          }
+
           return {
             ...payment,
             order: orderData as Order,
             waiter: waiterData as Profile,
+            bank: bankData as Bank | undefined,
           };
         })
       );
@@ -209,6 +223,10 @@ export function CashierDashboard() {
     return <UserManagement onBack={() => setShowUserManagement(false)} />;
   }
 
+  if (showBankManagement) {
+    return <BankManagement onBack={() => setShowBankManagement(false)} />;
+  }
+
   if (showReports) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-slate-100 p-4 sm:p-6">
@@ -295,6 +313,13 @@ export function CashierDashboard() {
               >
                 <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">Users</span>
+              </button>
+              <button
+                onClick={() => setShowBankManagement(true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-orange-600 text-white hover:bg-orange-700 rounded-lg transition text-sm sm:text-base"
+              >
+                <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden sm:inline">Banks</span>
               </button>
               <button
                 onClick={() => setShowMenuManagement(true)}

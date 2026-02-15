@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase, Order, Payment, Profile } from '../lib/supabase';
+import { supabase, Order, Payment, Profile, Bank } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, DollarSign, LogOut, BarChart3, X, Edit2, Eye, Calendar, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { CreateOrderForm } from './CreateOrderForm';
@@ -8,7 +8,7 @@ import { PaymentsList } from './PaymentsList';
 import { EditOrderForm } from './EditOrderForm';
 import { OrderDetailsView } from './OrderDetailsView';
 
-type PaymentWithOrder = Payment & { order: Order; waiter?: Profile };
+type PaymentWithOrder = Payment & { order: Order; waiter?: Profile; bank?: Bank };
 
 export function WaiterDashboard() {
   const { profile, signOut } = useAuth();
@@ -66,7 +66,22 @@ export function WaiterDashboard() {
             .eq('id', orderData.waiter_id)
             .maybeSingle();
 
-          return { ...payment, order: orderData as Order, waiter: waiterData as Profile };
+          let bankData = null;
+          if (payment.bank_id) {
+            const { data } = await supabase
+              .from('banks')
+              .select('*')
+              .eq('id', payment.bank_id)
+              .maybeSingle();
+            bankData = data;
+          }
+
+          return {
+            ...payment,
+            order: orderData as Order,
+            waiter: waiterData as Profile,
+            bank: bankData as Bank | undefined
+          };
         })
       );
 
