@@ -42,9 +42,11 @@ type PaymentsListProps = {
 };
 
 export function PaymentsList({ payments, onViewImage, onViewOrderDetails, isWaiter = false, isCashierReport = false }: PaymentsListProps) {
-  const [dateFilter, setDateFilter] = useState<string>('');
+  const [dateFromFilter, setDateFromFilter] = useState<string>('');
+  const [dateToFilter, setDateToFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'declined'>('all');
   const [waiterFilter, setWaiterFilter] = useState<string>('all');
+  const [bankFilter, setBankFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
@@ -60,12 +62,24 @@ export function PaymentsList({ payments, onViewImage, onViewOrderDetails, isWait
     return Array.from(waiters.values());
   }, [payments, isCashierReport]);
 
+  const uniqueBanks = useMemo(() => {
+    const banks = new Map<string, Bank>();
+    payments.forEach((p) => {
+      if (p.bank && !banks.has(p.bank.id)) {
+        banks.set(p.bank.id, p.bank);
+      }
+    });
+    return Array.from(banks.values());
+  }, [payments]);
+
   const filteredPayments = payments.filter((payment) => {
     const paymentDate = new Date(payment.submitted_at).toISOString().split('T')[0];
-    const matchesDate = !dateFilter || paymentDate === dateFilter;
+    const matchesDateFrom = !dateFromFilter || paymentDate >= dateFromFilter;
+    const matchesDateTo = !dateToFilter || paymentDate <= dateToFilter;
     const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
     const matchesWaiter = waiterFilter === 'all' || (payment.waiter?.id === waiterFilter);
-    return matchesDate && matchesStatus && matchesWaiter;
+    const matchesBank = bankFilter === 'all' || (payment.bank?.id === bankFilter) || (bankFilter === 'cash' && payment.payment_method === 'cash') || (bankFilter === 'no_bank' && payment.payment_method === 'bank_transfer' && !payment.bank_id);
+    return matchesDateFrom && matchesDateTo && matchesStatus && matchesWaiter && matchesBank;
   });
 
   const totalAmount = filteredPayments.reduce((sum, p) => sum + Number(p.amount), 0);
@@ -91,16 +105,35 @@ export function PaymentsList({ payments, onViewImage, onViewOrderDetails, isWait
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 p-4 bg-gray-50 rounded-lg">
-        <div className="flex flex-col lg:flex-row gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
             <div className="flex items-center gap-2">
               <Calendar className="w-5 h-5 text-gray-500" />
               <input
                 type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                value={dateFromFilter}
+                onChange={(e) => {
+                  setDateFromFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-gray-500" />
+              <input
+                type="date"
+                value={dateToFilter}
+                onChange={(e) => {
+                  setDateToFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
           </div>
@@ -109,13 +142,37 @@ export function PaymentsList({ payments, onViewImage, onViewOrderDetails, isWait
             <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              onChange={(e) => {
+                setStatusFilter(e.target.value as any);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
             >
               <option value="all">All Statuses</option>
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="declined">Declined</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Bank</label>
+            <select
+              value={bankFilter}
+              onChange={(e) => {
+                setBankFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="all">All Payment Methods</option>
+              <option value="cash">Cash Only</option>
+              {uniqueBanks.length > 0 && <option value="no_bank">Bank Transfer (No Bank Set)</option>}
+              {uniqueBanks.map((bank) => (
+                <option key={bank.id} value={bank.id}>
+                  {bank.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -128,7 +185,7 @@ export function PaymentsList({ payments, onViewImage, onViewOrderDetails, isWait
                   setWaiterFilter(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               >
                 <option value="all">All Waiters</option>
                 {uniqueWaiters.map((waiter) => (
@@ -140,6 +197,24 @@ export function PaymentsList({ payments, onViewImage, onViewOrderDetails, isWait
             </div>
           )}
         </div>
+
+        {(dateFromFilter || dateToFilter || statusFilter !== 'all' || waiterFilter !== 'all' || bankFilter !== 'all') && (
+          <div>
+            <button
+              onClick={() => {
+                setDateFromFilter('');
+                setDateToFilter('');
+                setStatusFilter('all');
+                setWaiterFilter('all');
+                setBankFilter('all');
+                setCurrentPage(1);
+              }}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Clear all filters
+            </button>
+          </div>
+        )}
 
         {filteredPayments.length > 0 && (
           <>
