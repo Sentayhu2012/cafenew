@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase, Menu, Order, OrderItem as OrderItemType } from '../lib/supabase';
-import { X, Save, Trash2 } from 'lucide-react';
+import { X, Save, Trash2, Search } from 'lucide-react';
 
 type OrderItem = {
   id: string;
@@ -22,6 +22,7 @@ export function EditOrderForm({ order, onClose, onSuccess }: EditOrderFormProps)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadData();
@@ -58,6 +59,15 @@ export function EditOrderForm({ order, onClose, onSuccess }: EditOrderFormProps)
       setLoading(false);
     }
   };
+
+  const filteredMenuItems = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return menuItems;
+    }
+    return menuItems.filter((item) =>
+      item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [menuItems, searchQuery]);
 
   const addItem = (menu: Menu) => {
     const existingItem = selectedItems.find((item) => item.menu_id === menu.id);
@@ -191,11 +201,44 @@ export function EditOrderForm({ order, onClose, onSuccess }: EditOrderFormProps)
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Select Menu Items</h2>
 
+              <div className="mb-4">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search menu items by name..."
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
+                {searchQuery && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    Found {filteredMenuItems.length} item{filteredMenuItems.length !== 1 ? 's' : ''}
+                  </div>
+                )}
+              </div>
+
               {menuItems.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">No menu items available</div>
+              ) : filteredMenuItems.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No menu items match "{searchQuery}"
+                </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {menuItems.map((item) => (
+                  {filteredMenuItems.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => addItem(item)}
