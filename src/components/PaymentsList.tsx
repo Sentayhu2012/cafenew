@@ -24,7 +24,6 @@ type Order = {
 type Waiter = {
   id: string;
   full_name: string;
-  active?: boolean;
 };
 
 type PaymentsListProps = {
@@ -46,13 +45,11 @@ export function PaymentsList({ payments, onViewImage, onViewOrderDetails, isWait
     const waiters = new Map<string, Waiter>();
     payments.forEach((p) => {
       if (p.waiter && !waiters.has(p.waiter.id)) {
-        if (!isCashierReport || p.waiter.active !== false) {
-          waiters.set(p.waiter.id, p.waiter);
-        }
+        waiters.set(p.waiter.id, p.waiter);
       }
     });
     return Array.from(waiters.values());
-  }, [payments, isCashierReport]);
+  }, [payments]);
 
   const filteredPayments = payments.filter((payment) => {
     const paymentDate = new Date(payment.submitted_at).toISOString().split('T')[0];
@@ -61,10 +58,6 @@ export function PaymentsList({ payments, onViewImage, onViewOrderDetails, isWait
     const matchesWaiter = waiterFilter === 'all' || (payment.waiter?.id === waiterFilter);
     return matchesDate && matchesStatus && matchesWaiter;
   });
-
-  const totalAmount = filteredPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const totalTip = filteredPayments.reduce((sum, p) => sum + Number(p.tip_amount), 0);
-  const totalSum = totalAmount + totalTip;
 
   const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
   const paginatedPayments = filteredPayments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -136,26 +129,10 @@ export function PaymentsList({ payments, onViewImage, onViewOrderDetails, isWait
         </div>
 
         {filteredPayments.length > 0 && (
-          <>
-            <div className="text-sm text-gray-600">
-              Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
-              {Math.min(currentPage * itemsPerPage, filteredPayments.length)} of {filteredPayments.length} payments
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 p-4 bg-white rounded-lg border border-gray-200">
-              <div>
-                <div className="text-xs font-medium text-gray-500 uppercase mb-1">Total Amount</div>
-                <div className="text-xl font-bold text-gray-900">${totalAmount.toFixed(2)}</div>
-              </div>
-              <div>
-                <div className="text-xs font-medium text-gray-500 uppercase mb-1">Total Tips</div>
-                <div className="text-xl font-bold text-green-600">${totalTip.toFixed(2)}</div>
-              </div>
-              <div>
-                <div className="text-xs font-medium text-gray-500 uppercase mb-1">Grand Total</div>
-                <div className="text-xl font-bold text-emerald-600">${totalSum.toFixed(2)}</div>
-              </div>
-            </div>
-          </>
+          <div className="text-sm text-gray-600">
+            Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
+            {Math.min(currentPage * itemsPerPage, filteredPayments.length)} of {filteredPayments.length} payments
+          </div>
         )}
       </div>
 

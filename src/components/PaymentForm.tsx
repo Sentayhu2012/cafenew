@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { supabase, Order } from '../lib/supabase';
-import { useOfflineOperations } from '../hooks/useOfflineOperations';
 import { X, Save, Camera } from 'lucide-react';
 
 type PaymentFormProps = {
@@ -10,7 +9,6 @@ type PaymentFormProps = {
 };
 
 export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
-  const { isOnline, submitPayment } = useOfflineOperations();
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank_transfer'>('cash');
   const [tipAmount, setTipAmount] = useState('');
   const [screenshot, setScreenshot] = useState<File | null>(null);
@@ -44,14 +42,10 @@ export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
     setLoading(true);
 
     try {
-      if (!isOnline && paymentMethod === 'bank_transfer') {
-        throw new Error('Bank transfer payments require an internet connection to upload screenshots. Please wait until you are online.');
-      }
-
       let screenshotUrl = null;
       let receiptUrl = null;
 
-      if (paymentMethod === 'bank_transfer' && isOnline) {
+      if (paymentMethod === 'bank_transfer') {
         if (!screenshot) throw new Error('Transfer screenshot is required');
 
         const screenshotExt = screenshot.name.split('.').pop();
@@ -87,22 +81,28 @@ export function PaymentForm({ order, onClose, onSuccess }: PaymentFormProps) {
         }
       }
 
-      const paymentId = `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert([
+          {
+            order_id: order.id,
+            payment_method: paymentMethod,
+            amount: order.total_amount,
+            tip_amount: tipAmount ? parseFloat(tipAmount) : 0,
+            transfer_screenshot_url: screenshotUrl,
+            receipt_url: receiptUrl,
+            status: 'pending',
+          },
+        ]);
 
-      await submitPayment({
-        id: paymentId,
-        order_id: order.id,
-        payment_method: paymentMethod,
-        amount: order.total_amount,
-        tip_amount: tipAmount ? parseFloat(tipAmount) : 0,
-        transfer_screenshot_url: screenshotUrl,
-        receipt_url: receiptUrl,
-        status: 'pending',
-      });
+      if (paymentError) throw paymentError;
 
-      if (isOnline) {
-        await supabase.from('orders').update({ status: 'paid' }).eq('id', order.id);
-      }
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ status: 'paid' })
+        .eq('id', order.id);
+
+      if (updateError) throw updateError;
 
       onSuccess();
     } catch (err) {

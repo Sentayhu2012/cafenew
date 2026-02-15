@@ -1,9 +1,7 @@
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { SyncProvider, useSync } from './contexts/SyncContext';
 import { AuthForm } from './components/AuthForm';
 import { WaiterDashboard } from './components/WaiterDashboard';
 import { CashierDashboard } from './components/CashierDashboard';
-import { SyncNotification } from './components/SyncNotification';
 
 function AppContent() {
   const { user, profile, loading } = useAuth();
@@ -20,21 +18,21 @@ function AppContent() {
     return <AuthForm />;
   }
 
-  return (
-    <>
-      <SyncNotification />
-      {profile.role === 'waiter' && <WaiterDashboard />}
-      {profile.role === 'cashier' && <CashierDashboard />}
-    </>
-  );
+  if (profile.role === 'waiter') {
+    return <WaiterDashboard />;
+  }
+
+  if (profile.role === 'cashier') {
+    return <CashierDashboard />;
+  }
+
+  return null;
 }
 
 function App() {
   return (
     <AuthProvider>
-      <SyncProvider>
-        <AppContent />
-      </SyncProvider>
+      <AppContent />
     </AuthProvider>
   );
 }

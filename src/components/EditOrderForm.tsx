@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { supabase, Menu, Order, OrderItem as OrderItemType } from '../lib/supabase';
-import { useOfflineOperations } from '../hooks/useOfflineOperations';
-import { indexedDBService } from '../lib/indexedDB';
 import { X, Save, Trash2 } from 'lucide-react';
 
 type OrderItem = {
@@ -19,7 +17,6 @@ type EditOrderFormProps = {
 };
 
 export function EditOrderForm({ order, onClose, onSuccess }: EditOrderFormProps) {
-  const { isOnline, createOrderItem, updateOrderItem, deleteOrderItem, updateOrder } = useOfflineOperations();
   const [menuItems, setMenuItems] = useState<Menu[]>([]);
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,51 +29,31 @@ export function EditOrderForm({ order, onClose, onSuccess }: EditOrderFormProps)
 
   const loadData = async () => {
     try {
-      let menuData: Menu[] = [];
-      let itemsData: any[] = [];
+      const [menuRes, itemsRes] = await Promise.all([
+        supabase.from('menu').select('*').order('created_at', { ascending: false }),
+        supabase.from('order_items').select('*').eq('order_id', order.id),
+      ]);
 
-      if (isOnline) {
-        const [menuRes, itemsRes] = await Promise.all([
-          supabase.from('menu').select('*').order('created_at', { ascending: false }),
-          supabase.from('order_items').select('*').eq('order_id', order.id),
-        ]);
+      if (menuRes.error) throw menuRes.error;
+      if (itemsRes.error) throw itemsRes.error;
 
-        if (menuRes.error) throw menuRes.error;
-        if (itemsRes.error) throw itemsRes.error;
+      setMenuItems(menuRes.data || []);
 
-        menuData = menuRes.data || [];
-        itemsData = itemsRes.data || [];
-
-        await indexedDBService.saveMenuItems(menuData);
-      } else {
-        menuData = await indexedDBService.getMenuItems();
-        const cachedOrders = await indexedDBService.getOrders();
-        const cachedOrder = cachedOrders.find((o) => o.id === order.id);
-        itemsData = cachedOrder?.items || [];
-      }
-
-      setMenuItems(menuData);
-
-      const itemsWithMenu = itemsData.map((item) => {
-        const menu = menuData.find((m) => m.id === item.menu_id || m.id === item.menu_item_id);
-        return {
-          id: item.id,
-          menu_id: item.menu_id || item.menu_item_id,
-          quantity: item.quantity,
-          menu: menu as Menu,
-          existing: true,
-        };
-      });
+      const itemsWithMenu = await Promise.all(
+        (itemsRes.data || []).map(async (item) => {
+          const menu = (menuRes.data || []).find((m) => m.id === item.menu_id);
+          return {
+            ...item,
+            menu: menu as Menu,
+            existing: true,
+          };
+        })
+      );
 
       setSelectedItems(itemsWithMenu);
     } catch (err) {
       console.error('Error loading data:', err);
-      const cachedMenu = await indexedDBService.getMenuItems();
-      if (cachedMenu.length > 0) {
-        setMenuItems(cachedMenu);
-      } else {
-        setError('Failed to load order data');
-      }
+      setError('Failed to load order data');
     } finally {
       setLoading(false);
     }
