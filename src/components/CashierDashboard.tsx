@@ -57,6 +57,7 @@ export function CashierDashboard() {
         .from('profiles')
         .select('*')
         .eq('role', 'waiter')
+        .eq('active', true)
         .order('full_name');
 
       if (error) throw error;
